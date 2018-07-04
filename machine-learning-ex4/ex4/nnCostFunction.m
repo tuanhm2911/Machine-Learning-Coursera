@@ -38,7 +38,27 @@ Theta2_grad = zeros(size(Theta2));
 %         variable J. After implementing Part 1, you can verify that your
 %         cost function computation is correct by verifying the cost
 %         computed in ex4.m
-%
+
+a1 = [ones(m, 1), X];                               % input: 5000 x 401
+
+z2 = a1 * Theta1';                                  % Theta1: 25 x 401
+a2 = [ones(m, 1), sigmoid(z2)];                     % -> 5000 x 26     
+
+z3 = a2 * Theta2';                                  % Theta2: 10 x 26
+a3 = sigmoid(z3);                                   % -> 5000 x 10
+h = a3;
+
+% recode y to Y
+Y = zeros(m, num_labels);                           % output: 5000 x 10
+for i = 1:m
+    Y(i, y(i)) = 1;  
+end
+
+% calculate J
+J_unreg = 1/m * sum(sum(-Y .* log(h) - (1 - Y) .* log(1 - h)));
+J_reg = lambda / (2*m) * (sum(sum(Theta1(:, 2:end) .^ 2)) + sum(sum(Theta2(:, 2:end) .^ 2)));
+J = J_unreg + J_reg;
+
 % Part 2: Implement the backpropagation algorithm to compute the gradients
 %         Theta1_grad and Theta2_grad. You should return the partial derivatives of
 %         the cost function with respect to Theta1 and Theta2 in Theta1_grad and
@@ -53,7 +73,12 @@ Theta2_grad = zeros(size(Theta2));
 %         Hint: We recommend implementing backpropagation using a for-loop
 %               over the training examples if you are implementing it for the 
 %               first time.
-%
+
+% calculate sigmas
+sigma3 = a3 .- Y;                                    % 5000 x 10
+sigma2 = (sigma3 * Theta2) .* sigmoidGradient([ones(size(z2, 1), 1), z2]);
+sigma2 = sigma2(:, 2:end);                           % 5000 x 25
+
 % Part 3: Implement regularization with the cost function and gradients.
 %
 %         Hint: You can implement this around the code for
@@ -62,66 +87,15 @@ Theta2_grad = zeros(size(Theta2));
 %               and Theta2_grad from Part 2.
 %
 
-% Part 1
+% accumulate gradients
+delta_1 = sigma2' * a1;                              % 25 x 401
+delta_2 = sigma3' * a2;                              % 10 x 26
 
-   % Feed forward through neural network
-      % Add ones to the X data matrix to get A^(1)
-      A1 = [ones(m, 1) X];
-
-      % calculations for first hidden layer
-      Z2 = A1 * Theta1';
-      A2 = sigmoid(Z2);
-      %Add ones to the A^(2) matrix
-      A2 = [ones(m, 1) A2];
-
-      % Calculations for the output layer
-      Z3 = A2 * Theta2';
-      A3 = sigmoid(Z3);
-
-      % Compute the log of hypotheses
-      h1 = log(A3);
-      h2 = log(1-A3);
-  
-   % Compute the unregularized cost function
-      % Create identity matrix to the size of num_labels
-      I = eye(num_labels);
-      
-      % Pick the appropriate standard unit vector that corresponds to the y value
-      % and compute a vector for the inner sum
-      
-      % Create logical matrix
-      Y_mat = zeros(size(A3));
-      for i=1:m
-         Y_mat(i, :) = I(y(i), :);
-      end;
-      J_unreg = 0;
-      for i=1:m
-        J_unreg = J_unreg + h1(i,:)*Y_mat(i, :)' + h2(i,:)*(1-Y_mat(i, :)'); 
-      end;
-
-    % Regularize the cost function
-       Theta1_sq = Theta1(:,2:end).^2;
-       Theta2_sq = Theta2(:,2:end).^2; 
-       J_reg = lambda/(2*m)*(sum(sum(Theta1_sq)) ...
-             + sum(sum(Theta2_sq)));
-       J = -1/m*J_unreg + J_reg;
-       
-     % Backpropagation
-     delta3 = A3 - Y_mat;
-     delta2 = delta3*Theta2(:,2:end).*sigmoidGradient(Z2);
-     Delta2 = A2'*delta3;
-     Delta2 = Delta2';
-     Delta1 = delta2'*A1;
-     
-     Theta1_grad = 1/m*Delta1;
-     Theta2_grad = 1/m*Delta2;
-     
-     % Gradient regularizaton
-     Theta2 = [zeros(num_labels, 1) Theta2(:, 2:end)];
-     Theta1 = [zeros(hidden_layer_size, 1) Theta1(:, 2:end)];
-     
-     Theta1_grad = Theta1_grad + lambda/m*Theta1;
-     Theta2_grad = Theta2_grad + lambda/m*Theta2;
+% calculate regularized gradient
+p1 = (lambda/m)*[zeros(size(Theta1, 1), 1) Theta1(:, 2:end)];
+p2 = (lambda/m)*[zeros(size(Theta2, 1), 1) Theta2(:, 2:end)];
+Theta1_grad = delta_1 ./ m + p1;
+Theta2_grad = delta_2 ./ m + p2;
 
 % -------------------------------------------------------------
 
